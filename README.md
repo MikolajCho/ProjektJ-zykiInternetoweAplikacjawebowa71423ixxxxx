@@ -1,13 +1,6 @@
 # Study Tracker
 
 ---
-
-## Zespół Projektowy
-* **Jan Kowalski** (nr albumu: **71423**)
-* **Adam Nowak** (nr albumu: **72449**)
-
----
-
 ## 1. Analiza problemu
 
 ### 1.1. Opis problemu
