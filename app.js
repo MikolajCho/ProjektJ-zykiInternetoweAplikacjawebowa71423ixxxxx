@@ -15,13 +15,13 @@ function toggleTheme() {
 }
 
 function fetchExternalAPI() {
-    fetch('https://api.adviceslip.com/advice')
+    fetch('https://numbersapi.com/random/math?json')
         .then(response => response.json())
         .then(data => {
-            document.getElementById('apiQuote').innerText = `Porada z zewnętrznego API: "${data.slip.advice}"`;
+            document.getElementById('apiQuote').innerText = `Naukowy fakt matematyczny: ${data.text}`;
         })
         .catch(() => {
-            document.getElementById('apiQuote').innerText = "Dyscyplina to klucz do realizacji założonych celów deweloperskich.";
+            document.getElementById('apiQuote').innerText = "Matematyka to królowa nauk, a programowanie to jej doskonałe narzędzie.";
         });
 }
 
