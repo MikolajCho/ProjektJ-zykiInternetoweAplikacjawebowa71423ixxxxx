@@ -3,6 +3,28 @@ document.getElementById('entryDate').value = new Date().toISOString().split('T')
 let currentFilter = 'all';
 let chartInstance = null;
 
+if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light-mode');
+}
+
+function toggleTheme() {
+    document.body.classList.toggle('light-mode');
+    const isLight = document.body.classList.contains('light-mode');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    initApp();
+}
+
+function fetchExternalAPI() {
+    fetch('https://api.adviceslip.com/advice')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('apiQuote').innerText = `Porada z zewnętrznego API: "${data.slip.advice}"`;
+        })
+        .catch(() => {
+            document.getElementById('apiQuote').innerText = "Dyscyplina to klucz do realizacji założonych celów deweloperskich.";
+        });
+}
+
 document.getElementById('inputForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -62,7 +84,7 @@ function playSiren() {
         oscillator.start();
         oscillator.stop(audioCtx.currentTime + 1.2);
     } catch(e) {
-        console.log("Audio zablokowane.");
+        console.log("Audio zablokowane przez politykę przeglądarki.");
     }
 }
 
@@ -90,6 +112,10 @@ function renderChart(data) {
     const labels = data.map(item => item.date);
     const chartData = data.map(item => item.hours - 3.0);
     
+    const isLight = document.body.classList.contains('light-mode');
+    const textColor = isLight ? '#0c0e12' : '#f5f6fa';
+    const gridColor = isLight ? '#cbd5e0' : '#2c3444';
+    
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
@@ -106,9 +132,18 @@ function renderChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: textColor } }
+            },
             scales: {
-                y: { grid: { color: '#2c3444' } },
-                x: { grid: { color: '#2c3444' } }
+                y: { 
+                    grid: { color: gridColor },
+                    ticks: { color: textColor }
+                },
+                x: { 
+                    grid: { color: gridColor },
+                    ticks: { color: textColor }
+                }
             }
         }
     });
@@ -196,4 +231,7 @@ window.setFilter = setFilter;
 window.closeModal = closeModal;
 window.exportJSON = exportJSON;
 window.importJSON = importJSON;
+window.toggleTheme = toggleTheme;
+
+fetchExternalAPI();
 initApp();
