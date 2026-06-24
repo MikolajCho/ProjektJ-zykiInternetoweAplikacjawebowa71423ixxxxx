@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Study Tracker</title>
+    <title>Ewidencja Czasu Nauki</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -18,9 +18,13 @@
 </div>
 
 <div class="container">
-    <header>
-        <h1>Study Tracker</h1>
-        <p>Analiza realizacji celu dobowego (cel minimalny: 3.0h / dzień).</p>
+    <header style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1>Ewidencja Czasu Nauki</h1>
+            <p>Analiza realizacji celu dobowego (cel minimalny: 3.0h / dzień).</p>
+            <p id="apiQuote" style="color: var(--accent-cyan); font-style: italic; margin-top: 0.5rem; font-size: 0.9rem;">Pobieranie motywacji z zewnętrznego API...</p>
+        </div>
+        <button class="btn-action" onclick="toggleTheme()" style="background-color: var(--bg-input); color: var(--text-main); border: 1px solid var(--border);">🌓 Zmień motyw</button>
     </header>
 
     <section class="input-panel">
@@ -78,7 +82,7 @@
     </section>
 
     <div class="input-panel" style="margin-top: 1.5rem;">
-        <h3>Archiwizacja bazy danych</h3>
+        <h3>Archiwizacja bazy danych (Kopia zapasowa)</h3>
         <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
             <button class="btn-action" onclick="exportJSON()">Eksportuj (JSON)</button>
             <button class="btn-action" onclick="document.getElementById('fileInput').click()">Importuj (JSON)</button>
