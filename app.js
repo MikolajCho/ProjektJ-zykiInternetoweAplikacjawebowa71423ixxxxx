@@ -26,6 +26,7 @@ document.getElementById('inputForm').addEventListener('submit', function(e) {
     
     document.getElementById('entryHours').value = '';
     initApp();
+    checkRegression();
 });
 
 function removeEntry(date) {
@@ -36,11 +37,46 @@ function removeEntry(date) {
     }
 }
 
+// Sprawdzanie czy dwa ostatnie chronologicznie wpisy mają przypisane 0 godzin nauki
+function checkRegression() {
+    if (storage.length < 2) return;
+    const last = storage[storage.length - 1];
+    const prev = storage[storage.length - 2];
+    if (last.hours === 0 && prev.hours === 0) {
+        document.getElementById('deathModal').style.display = 'flex';
+        playSiren();
+    }
+}
+
+function playSiren() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+        oscillator.frequency.linearRampToValueAtTime(70, audioCtx.currentTime + 1.0);
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 1.2);
+    } catch(e) {
+        console.log("Audio zablokowane - polityka autoplay przeglądarki.");
+    }
+}
+
+function closeModal() {
+    document.getElementById('deathModal').style.display = 'none';
+}
+
 function setFilter(filterType) {
     currentFilter = filterType;
     initApp();
 }
 
+// Filtrowanie tablicy obiektów
 function filterData(dataArray) {
     if (currentFilter === 'all') return dataArray;
     const cutoffDate = new Date();
@@ -52,7 +88,6 @@ function renderChart(data) {
     if (chartInstance) {
         chartInstance.destroy();
     }
-    
     const ctx = document.getElementById('deviationChart').getContext('2d');
     const labels = data.map(item => item.date);
     const chartData = data.map(item => item.hours - 3.0);
@@ -123,4 +158,5 @@ function initApp() {
 
 window.removeEntry = removeEntry;
 window.setFilter = setFilter;
+window.closeModal = closeModal;
 initApp();
