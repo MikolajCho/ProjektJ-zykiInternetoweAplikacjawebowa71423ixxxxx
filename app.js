@@ -2,6 +2,8 @@ let storage = JSON.parse(localStorage.getItem('study_db')) || [];
 document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
 let currentFilter = 'all';
 let chartInstance = null;
+let currentPage = 1;
+const itemsPerPage = 10;
 
 if (localStorage.getItem('theme') === 'light') {
     document.body.classList.add('light-mode');
@@ -84,7 +86,7 @@ function playSiren() {
         oscillator.start();
         oscillator.stop(audioCtx.currentTime + 1.2);
     } catch(e) {
-        console.log("Audio zablokowane przez politykę przeglądarki.");
+        console.log("Audio zablokowane.");
     }
 }
 
@@ -94,6 +96,7 @@ function closeModal() {
 
 function setFilter(filterType) {
     currentFilter = filterType;
+    currentPage = 1;
     initApp();
 }
 
@@ -120,14 +123,26 @@ function renderChart(data) {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: 'Odchylenie od normy dobowej (Cel 3h)',
-                data: chartData,
-                borderColor: '#00d2d3',
-                backgroundColor: 'transparent',
-                borderWidth: 3,
-                tension: 0.1
-            }]
+            datasets: [
+                {
+                    label: 'Odchylenie od normy dobowej (Cel 3h)',
+                    data: chartData,
+                    borderColor: '#00d2d3',
+                    backgroundColor: 'transparent',
+                    borderWidth: 3,
+                    tension: 0.1
+                },
+                {
+                    label: 'Norma Dobowa (Cel 3h/d)',
+                    data: Array(labels.length).fill(0),
+                    borderColor: '#ff4757',
+                    borderWidth: 1.5,
+                    borderDash: [6, 6],
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    fill: false
+                }
+            ]
         },
         options: {
             responsive: true,
@@ -186,33 +201,54 @@ function importJSON(event) {
     reader.readAsText(file);
 }
 
+function renderPaginationControls(totalItems) {
+    const container = document.getElementById('paginationControls');
+    container.innerHTML = '';
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (totalPages <= 1) return;
+
+    const btnPrev = document.createElement('button');
+    btnPrev.className = 'btn-page';
+    btnPrev.innerText = '‹ Poprzednia';
+    btnPrev.disabled = currentPage === 1;
+    btnPrev.onclick = () => { currentPage--; initApp(); };
+    container.appendChild(btnPrev);
+
+    const info = document.createElement('span');
+    info.className = 'page-info';
+    info.innerText = `${currentPage} / ${totalPages}`;
+    container.appendChild(info);
+
+    const btnNext = document.createElement('button');
+    btnNext.className = 'btn-page';
+    btnNext.innerText = 'Następna ›';
+    btnNext.disabled = currentPage === totalPages;
+    btnNext.onclick = () => { currentPage++; initApp(); };
+    container.appendChild(btnNext);
+}
+
 function initApp() {
+    document.getElementById('btnFilterAll').classList.toggle('active', currentFilter === 'all');
+    document.getElementById('btnFilterWeek').classList.toggle('active', currentFilter === 'week');
+
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
     
     const activeData = filterData(storage);
     
     if (activeData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Brak danych dla tego okresu.</td></tr>`;
         document.getElementById('kpiTotal').innerText = '0.0 h';
         document.getElementById('kpiNet').innerText = '0.0 h';
         document.getElementById('kpiAvg').innerText = '0.00 h';
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Brak danych dla tego okresu.</td></tr>`;
         if (chartInstance) chartInstance.destroy();
+        document.getElementById('paginationControls').innerHTML = '';
         return;
     }
     
     let totalHours = 0;
-    
     activeData.forEach(item => {
         totalHours += item.hours;
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${item.date}</td>
-            <td>${item.hours.toFixed(1)} h</td>
-            <td><button style="color: var(--accent-red); background: none; border: none; cursor: pointer; font-weight: 600;" onclick="removeEntry('${item.date}')">Usuń</button></td>
-        `;
-        tbody.appendChild(tr);
     });
     
     let netBalance = totalHours - (activeData.length * 3.0);
@@ -224,6 +260,25 @@ function initApp() {
     document.getElementById('kpiAvg').innerText = `${averageHours.toFixed(2)} h`;
     
     renderChart(activeData);
+
+    const totalPages = Math.ceil(activeData.length / itemsPerPage);
+    if (currentPage > totalPages) currentPage = totalPages || 1;
+    
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const pageData = activeData.slice(start, end);
+    
+    pageData.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${item.date}</td>
+            <td>${item.hours.toFixed(1)} h</td>
+            <td><button style="color: var(--accent-red); background: none; border: none; cursor: pointer; font-weight: 600;" onclick="removeEntry('${item.date}')">Usuń</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    renderPaginationControls(activeData.length);
 }
 
 window.removeEntry = removeEntry;
