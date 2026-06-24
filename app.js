@@ -1,5 +1,6 @@
 let storage = JSON.parse(localStorage.getItem('study_db')) || [];
 document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+let currentFilter = 'all';
 
 document.getElementById('inputForm').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -34,20 +35,35 @@ function removeEntry(date) {
     }
 }
 
+function setFilter(filterType) {
+    currentFilter = filterType;
+    initApp();
+}
+
+function filterData(dataArray) {
+    if (currentFilter === 'all') return dataArray;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 7);
+    return dataArray.filter(item => new Date(item.date) >= cutoffDate);
+}
+
 function initApp() {
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
     
-    // Obsługa pustego stanu bazy danych
-    if (storage.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Brak danych w bazie. Wprowadź pierwszy dzień.</td></tr>`;
+    const activeData = filterData(storage);
+    
+    if (activeData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Brak danych dla tego okresu.</td></tr>`;
         document.getElementById('kpiTotal').innerText = '0.0 h';
+        document.getElementById('kpiNet').innerText = '0.0 h';
+        document.getElementById('kpiAvg').innerText = '0.00 h';
         return;
     }
     
     let totalHours = 0;
     
-    storage.forEach(item => {
+    activeData.forEach(item => {
         totalHours += item.hours;
         
         const tr = document.createElement('tr');
@@ -59,8 +75,15 @@ function initApp() {
         tbody.appendChild(tr);
     });
     
+    let netBalance = totalHours - (activeData.length * 3.0);
+    let averageHours = totalHours / activeData.length;
+    
     document.getElementById('kpiTotal').innerText = `${totalHours.toFixed(1)} h`;
+    document.getElementById('kpiNet').innerText = `${netBalance >= 0 ? '+' : ''}${netBalance.toFixed(1)} h`;
+    document.getElementById('kpiNet').style.color = netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    document.getElementById('kpiAvg').innerText = `${averageHours.toFixed(2)} h`;
 }
 
 window.removeEntry = removeEntry;
+window.setFilter = setFilter;
 initApp();
