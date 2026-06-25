@@ -53,6 +53,16 @@ body {
     gap: 1rem;
 }
 
+/* Lewa część nagłówka zajmuje wolne miejsce, ale nie rozpycha przycisku */
+.app-header > div {
+    flex: 1;
+    min-width: 260px;
+}
+
+#themeBtn {
+    flex-shrink: 0;
+}
+
 h1 {
     font-size: 1.6rem;
     color: var(--text-main);
@@ -68,6 +78,8 @@ h1 {
     font-style: italic;
     margin-top: 0.5rem;
     font-size: 0.9rem;
+    max-width: 640px;
+    overflow-wrap: break-word;
 }
 
 /* Karty */

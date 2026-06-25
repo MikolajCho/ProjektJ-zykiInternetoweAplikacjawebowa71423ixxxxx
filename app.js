@@ -32,13 +32,29 @@ function toggleTheme() {
 
 // ----- Zewnętrzne API: ciekawostka w nagłówku -----
 // Pokazuje, że potrafimy pobrać dane z zewnętrznego serwera (fetch + async).
+// Lista tematów naukowych. Losujemy jeden i pobieramy jego opis z Wikipedii,
+// dzięki czemu ciekawostka zawsze jest naukowa i po polsku.
+const SCIENCE_TOPICS = [
+    'Fotosynteza', 'Czarna_dziura', 'DNA', 'Mitochondrium', 'Teoria_względności',
+    'Grawitacja', 'Atom', 'Ewolucja', 'Wielki_Wybuch', 'Prędkość_światła',
+    'Wirus', 'Elektron', 'Ekosystem', 'Wulkan', 'Magnetyzm',
+    'Układ_Słoneczny', 'Antybiotyk', 'Komórka_(biologia)', 'Fala_dźwiękowa', 'Tlen'
+];
+
 function loadQuote() {
-    // Losowy artykuł z polskiej Wikipedii (zewnętrzne API, dane po polsku).
-    fetch('https://pl.wikipedia.org/api/rest_v1/page/random/summary')
+    const topic = SCIENCE_TOPICS[Math.floor(Math.random() * SCIENCE_TOPICS.length)];
+
+    fetch('https://pl.wikipedia.org/api/rest_v1/page/summary/' + topic)
         .then(response => response.json())
         .then(data => {
-            const text = data.extract || data.title;
-            document.getElementById('apiQuote').innerText = '📚 ' + data.title + ': ' + text;
+            let text = data.extract || '';
+            // Skracamy długi opis, żeby nie rozpychał nagłówka.
+            const MAX = 200;
+            if (text.length > MAX) {
+                text = text.slice(0, MAX);
+                text = text.slice(0, text.lastIndexOf(' ')) + '...';
+            }
+            document.getElementById('apiQuote').innerText = '🔬 ' + text;
         })
         .catch(() => {
             // Gdy API nie odpowie, pokazujemy tekst zastępczy (obsługa błędu).
