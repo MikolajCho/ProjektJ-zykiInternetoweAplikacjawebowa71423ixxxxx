@@ -9,22 +9,14 @@
 </head>
 <body>
 
-<div id="deathModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,6,8,0.95); z-index: 999; align-items: center; justify-content: center;">
-    <div style="background: #1a0f12; border: 2px solid #ff4757; padding: 2rem; border-radius: 8px; text-align: center; max-width: 500px;">
-        <h2 style="color: #ff4757; margin-bottom: 1rem;">💀 KRACH DYSCYPLINY: REGRES</h2>
-        <p style="margin-bottom: 1.5rem;">Wykryto dwa dni z rzędu bez jakiejkolwiek nauki. Przełam bezwładność natychmiast!</p>
-        <button class="btn-action" style="background-color: #ff4757; color: white;" onclick="closeModal()">Akceptuję i wracam do pracy</button>
-    </div>
-</div>
-
 <div class="container">
-    <header style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+    <header class="app-header">
         <div>
             <h1>Study Tracker</h1>
-            <p>Analiza realizacji celu dobowego (cel minimalny: 3.0h / dzień).</p>
-            <p id="apiQuote" style="color: var(--accent-cyan); font-style: italic; margin-top: 0.5rem; font-size: 0.9rem;">Ładowanie faktu z zewnętrznego serwera...</p>
+            <p>Zapisuj, ile godzin dziennie się uczysz. Cel dzienny: 3 h.</p>
+            <p id="apiQuote" class="quote">Ładowanie ciekawostki...</p>
         </div>
-        <button class="btn-action" onclick="toggleTheme()" style="background-color: var(--bg-input); color: var(--text-main); border: 1px solid var(--border);">🌓 Zmień motyw</button>
+        <button id="themeBtn" class="btn-secondary">🌓 Zmień motyw</button>
     </header>
 
     <section class="input-panel">
@@ -35,61 +27,52 @@
             </div>
             <div class="form-group">
                 <label for="entryHours">Godziny nauki</label>
-                <input type="number" id="entryHours" step="0.1" placeholder="np. 4.5" required>
+                <input type="number" id="entryHours" step="0.1" min="0" max="24" placeholder="np. 4.5" required>
             </div>
             <button type="submit" class="btn-action">Zapisz dzień</button>
         </form>
+        <p id="formError" class="form-error"></p>
     </section>
 
-    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-        <button class="btn-filter" id="btnFilterAll" onclick="setFilter('all')">Wszystko</button>
-        <button class="btn-filter" id="btnFilterWeek" onclick="setFilter('week')">Ostatnie 7 dni</button>
+    <div class="filters">
+        <button class="btn-filter" id="btnFilterAll">Wszystko</button>
+        <button class="btn-filter" id="btnFilterWeek">Ostatnie 7 dni</button>
     </div>
 
     <section class="kpi-row">
         <div class="kpi-box">
-            <div class="label">Zdeponowany Czas (Okres)</div>
+            <div class="label">Suma godzin</div>
             <div id="kpiTotal" class="value">0.0 h</div>
         </div>
         <div class="kpi-box">
-            <div class="label">Bilans w Okresie</div>
-            <div id="kpiNet" class="value">0.0 h</div>
+            <div class="label">Średnia dziennie</div>
+            <div id="kpiAvg" class="value">0.00 h</div>
         </div>
         <div class="kpi-box">
-            <div class="label">Średnia Doba</div>
-            <div id="kpiAvg" class="value">0.00 h</div>
+            <div class="label">Liczba dni</div>
+            <div id="kpiDays" class="value">0</div>
         </div>
     </section>
 
-    <div class="kpi-box" style="height: 300px; margin-bottom: 1.5rem;">
-        <canvas id="deviationChart"></canvas>
+    <div class="kpi-box chart-box">
+        <canvas id="hoursChart"></canvas>
     </div>
 
     <section class="log-box">
-        <h2>Rejestr Chronologiczny</h2>
+        <h2>Historia wpisów</h2>
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
                         <th>Data</th>
                         <th>Czas nauki</th>
-                        <th>Zarządzanie</th>
+                        <th>Akcja</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
-        <div id="paginationControls" class="pagination-container"></div>
     </section>
-
-    <div class="input-panel" style="margin-top: 1.5rem;">
-        <h3>Archiwizacja bazy danych (Kopia zapasowa)</h3>
-        <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
-            <button class="btn-action" onclick="exportJSON()">Eksportuj (JSON)</button>
-            <button class="btn-action" onclick="document.getElementById('fileInput').click()">Importuj (JSON)</button>
-            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="importJSON(event)">
-        </div>
-    </div>
 </div>
 
 <script src="app.js"></script>

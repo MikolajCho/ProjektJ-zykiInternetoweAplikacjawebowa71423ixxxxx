@@ -1,10 +1,24 @@
-let storage = JSON.parse(localStorage.getItem('study_db')) || [];
-document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
-let currentFilter = 'all';
-let chartInstance = null;
-let currentPage = 1;
-const itemsPerPage = 10;
+// ----- Dane aplikacji -----
+// Wpisy trzymamy w localStorage jako tablicę obiektów { date, hours }.
+let entries = JSON.parse(localStorage.getItem('study_db')) || [];
 
+// Aktualnie wybrany filtr: 'all' (wszystko) albo 'week' (ostatnie 7 dni).
+let currentFilter = 'all';
+
+// Referencja do wykresu, żeby móc go odświeżać.
+let chart = null;
+
+// ----- Pobranie elementów ze strony -----
+const form = document.getElementById('inputForm');
+const dateInput = document.getElementById('entryDate');
+const hoursInput = document.getElementById('entryHours');
+const errorBox = document.getElementById('formError');
+const tableBody = document.getElementById('tableBody');
+
+// Na start ustawiamy w formularzu dzisiejszą datę.
+dateInput.value = new Date().toISOString().split('T')[0];
+
+// ----- Motyw jasny / ciemny -----
 if (localStorage.getItem('theme') === 'light') {
     document.body.classList.add('light-mode');
 }
@@ -13,280 +27,192 @@ function toggleTheme() {
     document.body.classList.toggle('light-mode');
     const isLight = document.body.classList.contains('light-mode');
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
-    initApp();
+    render(); // przerysowujemy wykres w nowych kolorach
 }
 
-function fetchExternalAPI() {
+// ----- Zewnętrzne API: ciekawostka w nagłówku -----
+// Pokazuje, że potrafimy pobrać dane z zewnętrznego serwera (fetch + async).
+function loadQuote() {
     fetch('https://numbersapi.com/random/math?json')
         .then(response => response.json())
         .then(data => {
-            document.getElementById('apiQuote').innerText = `Naukowy fakt matematyczny: ${data.text}`;
+            document.getElementById('apiQuote').innerText = '🔢 ' + data.text;
         })
         .catch(() => {
-            document.getElementById('apiQuote').innerText = "Matematyka to królowa nauk, a programowanie to jej doskonałe narzędzie.";
+            // Gdy API nie odpowie, pokazujemy tekst zastępczy (obsługa błędu).
+            document.getElementById('apiQuote').innerText = 'Nie udało się pobrać ciekawostki.';
         });
 }
 
-document.getElementById('inputForm').addEventListener('submit', function(e) {
+// ----- Dodawanie / aktualizacja wpisu -----
+form.addEventListener('submit', function (e) {
     e.preventDefault();
-    
-    const inputDate = document.getElementById('entryDate').value;
-    const inputHours = parseFloat(document.getElementById('entryHours').value);
-    
-    if (isNaN(inputHours) || inputHours < 0 || inputHours > 24) {
-        alert("Błąd: Liczba godzin musi wynosić od 0 do 24!");
+
+    const date = dateInput.value;
+    const hours = parseFloat(hoursInput.value);
+
+    // Walidacja: data musi być, godziny muszą być liczbą z zakresu 0–24.
+    if (!date) {
+        showError('Podaj datę.');
         return;
     }
-    
-    const existingIndex = storage.findIndex(item => item.date === inputDate);
-    if (existingIndex !== -1) {
-        storage[existingIndex].hours = inputHours;
-    } else {
-        storage.push({ date: inputDate, hours: inputHours });
+    if (isNaN(hours) || hours < 0 || hours > 24) {
+        showError('Liczba godzin musi być z zakresu 0–24.');
+        return;
     }
-    
-    storage.sort((a, b) => new Date(a.date) - new Date(b.date));
-    localStorage.setItem('study_db', JSON.stringify(storage));
-    
-    document.getElementById('entryHours').value = '';
-    initApp();
-    checkRegression();
+    showError(''); // czyścimy komunikat błędu
+
+    // Jeśli wpis na ten dzień już istnieje, nadpisujemy go; inaczej dodajemy nowy.
+    const existing = entries.find(item => item.date === date);
+    if (existing) {
+        existing.hours = hours;
+    } else {
+        entries.push({ date: date, hours: hours });
+    }
+
+    // Sortujemy po dacie i zapisujemy do localStorage.
+    entries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    save();
+
+    hoursInput.value = '';
+    render();
 });
 
+// ----- Usuwanie wpisu -----
 function removeEntry(date) {
-    if (confirm(`Czy na pewno chcesz usunąć wpis z dnia ${date}?`)) {
-        storage = storage.filter(item => item.date !== date);
-        localStorage.setItem('study_db', JSON.stringify(storage));
-        initApp();
+    if (confirm('Usunąć wpis z dnia ' + date + '?')) {
+        entries = entries.filter(item => item.date !== date);
+        save();
+        render();
     }
 }
 
-function checkRegression() {
-    if (storage.length < 2) return;
-    const last = storage[storage.length - 1];
-    const prev = storage[storage.length - 2];
-    if (last.hours === 0 && prev.hours === 0) {
-        document.getElementById('deathModal').style.display = 'flex';
-        playSiren();
+// ----- Filtr -----
+function setFilter(filter) {
+    currentFilter = filter;
+    render();
+}
+
+// Zwraca dane po zastosowaniu aktualnego filtra.
+function getVisibleEntries() {
+    if (currentFilter === 'all') {
+        return entries;
     }
+    const limit = new Date();
+    limit.setDate(limit.getDate() - 7);
+    return entries.filter(item => new Date(item.date) >= limit);
 }
 
-function playSiren() {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.type = 'sawtooth';
-        oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
-        oscillator.frequency.linearRampToValueAtTime(70, audioCtx.currentTime + 1.0);
-        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 1.2);
-    } catch(e) {
-        console.log("Audio zablokowane.");
-    }
+// ----- Pomocnicze -----
+function save() {
+    localStorage.setItem('study_db', JSON.stringify(entries));
 }
 
-function closeModal() {
-    document.getElementById('deathModal').style.display = 'none';
+function showError(message) {
+    errorBox.innerText = message;
 }
 
-function setFilter(filterType) {
-    currentFilter = filterType;
-    currentPage = 1;
-    initApp();
-}
-
-function filterData(dataArray) {
-    if (currentFilter === 'all') return dataArray;
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 7);
-    return dataArray.filter(item => new Date(item.date) >= cutoffDate);
-}
-
+// ----- Wykres godzin nauki -----
 function renderChart(data) {
-    if (chartInstance) {
-        chartInstance.destroy();
+    if (chart) {
+        chart.destroy();
     }
-    const ctx = document.getElementById('deviationChart').getContext('2d');
-    const labels = data.map(item => item.date);
-    const chartData = data.map(item => item.hours - 3.0);
-    
     const isLight = document.body.classList.contains('light-mode');
     const textColor = isLight ? '#0c0e12' : '#f5f6fa';
     const gridColor = isLight ? '#cbd5e0' : '#2c3444';
-    
-    chartInstance = new Chart(ctx, {
+
+    chart = new Chart(document.getElementById('hoursChart'), {
         type: 'line',
         data: {
-            labels: labels,
+            labels: data.map(item => item.date),
             datasets: [
                 {
-                    label: 'Odchylenie od normy dobowej (Cel 3h)',
-                    data: chartData,
+                    label: 'Godziny nauki',
+                    data: data.map(item => item.hours),
                     borderColor: '#00d2d3',
-                    backgroundColor: 'transparent',
                     borderWidth: 3,
                     tension: 0.1
                 },
                 {
-                    label: 'Norma Dobowa (Cel 3h/d)',
-                    data: Array(labels.length).fill(0),
+                    label: 'Cel 3 h',
+                    data: data.map(() => 3),
                     borderColor: '#ff4757',
                     borderWidth: 1.5,
                     borderDash: [6, 6],
-                    backgroundColor: 'transparent',
-                    pointRadius: 0,
-                    fill: false
+                    pointRadius: 0
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: textColor } }
-            },
+            plugins: { legend: { labels: { color: textColor } } },
             scales: {
-                y: { 
-                    grid: { color: gridColor },
-                    ticks: { color: textColor }
-                },
-                x: { 
-                    grid: { color: gridColor },
-                    ticks: { color: textColor }
-                }
+                y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } },
+                x: { grid: { color: gridColor }, ticks: { color: textColor } }
             }
         }
     });
 }
 
-function exportJSON() {
-    if (storage.length === 0) {
-        alert("Baza danych jest pusta.");
-        return;
-    }
-    const blob = new Blob([JSON.stringify(storage, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'kopia_bezpieczeństwa_nauki.json';
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-function importJSON(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const parsedData = JSON.parse(e.target.result);
-            if (Array.isArray(parsedData)) {
-                storage = parsedData;
-                localStorage.setItem('study_db', JSON.stringify(storage));
-                initApp();
-                alert("Baza danych została pomyślnie zaimportowana!");
-            } else {
-                alert("Nieprawidłowy format pliku JSON.");
-            }
-        } catch(err) {
-            alert("Błąd podczas odczytu pliku kopii zapasowej.");
-        }
-    };
-    reader.readAsText(file);
-}
-
-function renderPaginationControls(totalItems) {
-    const container = document.getElementById('paginationControls');
-    container.innerHTML = '';
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    if (totalPages <= 1) return;
-
-    const btnPrev = document.createElement('button');
-    btnPrev.className = 'btn-page';
-    btnPrev.innerText = '‹ Poprzednia';
-    btnPrev.disabled = currentPage === 1;
-    btnPrev.onclick = () => { currentPage--; initApp(); };
-    container.appendChild(btnPrev);
-
-    const info = document.createElement('span');
-    info.className = 'page-info';
-    info.innerText = `${currentPage} / ${totalPages}`;
-    container.appendChild(info);
-
-    const btnNext = document.createElement('button');
-    btnNext.className = 'btn-page';
-    btnNext.innerText = 'Następna ›';
-    btnNext.disabled = currentPage === totalPages;
-    btnNext.onclick = () => { currentPage++; initApp(); };
-    container.appendChild(btnNext);
-}
-
-function initApp() {
+// ----- Główne rysowanie widoku -----
+function render() {
+    // Podświetlenie aktywnego przycisku filtra.
     document.getElementById('btnFilterAll').classList.toggle('active', currentFilter === 'all');
     document.getElementById('btnFilterWeek').classList.toggle('active', currentFilter === 'week');
 
-    const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = '';
-    
-    const activeData = filterData(storage);
-    
-    if (activeData.length === 0) {
+    const data = getVisibleEntries();
+    tableBody.innerHTML = '';
+
+    // Pusty stan: gdy nie ma żadnych danych.
+    if (data.length === 0) {
         document.getElementById('kpiTotal').innerText = '0.0 h';
-        document.getElementById('kpiNet').innerText = '0.0 h';
         document.getElementById('kpiAvg').innerText = '0.00 h';
-        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Brak danych dla tego okresu.</td></tr>`;
-        if (chartInstance) chartInstance.destroy();
-        document.getElementById('paginationControls').innerHTML = '';
+        document.getElementById('kpiDays').innerText = '0';
+        tableBody.innerHTML = '<tr><td colspan="3" class="empty">Brak danych dla tego okresu.</td></tr>';
+        if (chart) chart.destroy();
         return;
     }
-    
-    let totalHours = 0;
-    activeData.forEach(item => {
-        totalHours += item.hours;
-    });
-    
-    let netBalance = totalHours - (activeData.length * 3.0);
-    let averageHours = totalHours / activeData.length;
-    
-    document.getElementById('kpiTotal').innerText = `${totalHours.toFixed(1)} h`;
-    document.getElementById('kpiNet').innerText = `${netBalance >= 0 ? '+' : ''}${netBalance.toFixed(1)} h`;
-    document.getElementById('kpiNet').style.color = netBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
-    document.getElementById('kpiAvg').innerText = `${averageHours.toFixed(2)} h`;
-    
-    renderChart(activeData);
 
-    const totalPages = Math.ceil(activeData.length / itemsPerPage);
-    if (currentPage > totalPages) currentPage = totalPages || 1;
-    
-    const start = (currentPage - 1) * itemsPerPage;
-    const end = start + itemsPerPage;
-    const pageData = activeData.slice(start, end);
-    
-    pageData.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${item.date}</td>
-            <td>${item.hours.toFixed(1)} h</td>
-            <td><button style="color: var(--accent-red); background: none; border: none; cursor: pointer; font-weight: 600;" onclick="removeEntry('${item.date}')">Usuń</button></td>
-        `;
-        tbody.appendChild(tr);
+    // Obliczenia statystyk.
+    let total = 0;
+    data.forEach(item => total += item.hours);
+    const avg = total / data.length;
+
+    document.getElementById('kpiTotal').innerText = total.toFixed(1) + ' h';
+    document.getElementById('kpiAvg').innerText = avg.toFixed(2) + ' h';
+    document.getElementById('kpiDays').innerText = data.length;
+
+    renderChart(data);
+
+    // Rysowanie wierszy tabeli.
+    data.forEach(item => {
+        const row = document.createElement('tr');
+
+        const dateCell = document.createElement('td');
+        dateCell.innerText = item.date;
+
+        const hoursCell = document.createElement('td');
+        hoursCell.innerText = item.hours.toFixed(1) + ' h';
+
+        const actionCell = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-delete';
+        delBtn.innerText = 'Usuń';
+        delBtn.onclick = () => removeEntry(item.date);
+        actionCell.appendChild(delBtn);
+
+        row.appendChild(dateCell);
+        row.appendChild(hoursCell);
+        row.appendChild(actionCell);
+        tableBody.appendChild(row);
     });
-    
-    renderPaginationControls(activeData.length);
 }
 
-window.removeEntry = removeEntry;
-window.setFilter = setFilter;
-window.closeModal = closeModal;
-window.exportJSON = exportJSON;
-window.importJSON = importJSON;
-window.toggleTheme = toggleTheme;
+// ----- Podpięcie zdarzeń i start aplikacji -----
+document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+document.getElementById('btnFilterAll').addEventListener('click', () => setFilter('all'));
+document.getElementById('btnFilterWeek').addEventListener('click', () => setFilter('week'));
 
-fetchExternalAPI();
-initApp();
+loadQuote();
+render();
